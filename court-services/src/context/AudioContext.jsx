@@ -21,35 +21,38 @@ export function AudioProvider({ children }) {
   const [activeMeta, setActiveMeta] = useState(null)
 
   /** Start playing a new player; stops any previous one first */
-  const requestPlay = useCallback((id, audioEl, meta = {}) => {
-    if (activeRef.current && activeRef.current !== audioEl) {
-      activeRef.current.pause()
-      activeRef.current.currentTime = 0
-    }
-    activeRef.current = audioEl
-    setActiveId(id)
-    setActiveMeta(meta)
-    audioEl.play().catch(() => {
-      // Browser autoplay policy or missing src — fail silently
-    })
-  }, [])
+const requestPlay = useCallback((id, audioEl, meta = {}) => {
+  // Stop previous
+  if (activeRef.current && activeRef.current !== audioEl) {
+    activeRef.current.pause()
+  }
+
+  activeRef.current = audioEl
+  setActiveId(id)
+  setActiveMeta(meta)
+
+  audioEl.play().catch(() => {})
+}, [])
 
   /** Called by a player when it pauses or ends naturally */
-  const notifyStop = useCallback((id) => {
-    setActiveId((prev) => (prev === id ? null : prev))
-    setActiveMeta((prev) => (activeRef.current ? prev : null))
-  }, [])
+const notifyStop = useCallback((id) => {
+  setActiveId((prev) => (prev === id ? null : prev))
+
+  if (activeRef.current?.paused) {
+    activeRef.current = null
+    setActiveMeta(null)
+  }
+}, [])
 
   /** Programmatically stop whatever is playing (used by sticky bar) */
-  const stopActive = useCallback(() => {
-    if (activeRef.current) {
-      activeRef.current.pause()
-      activeRef.current.currentTime = 0
-    }
-    setActiveId(null)
-    setActiveMeta(null)
-    activeRef.current = null
-  }, [])
+const stopActive = useCallback(() => {
+  if (activeRef.current) {
+    activeRef.current.pause()
+  }
+  activeRef.current = null
+  setActiveId(null)
+  setActiveMeta(null)
+}, [])
 
   return (
     <AudioContext.Provider value={{ activeId, activeMeta, requestPlay, notifyStop, stopActive }}>

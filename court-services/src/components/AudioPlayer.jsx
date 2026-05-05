@@ -41,11 +41,7 @@ export default function AudioPlayer({ src, label, variant = 'inline' }) {
   useEffect(() => {
     const el = audioRef.current
     if (!el) return
-    if (!isPlaying && !el.paused) {
-      el.pause()
-      el.currentTime = 0
-      setCurrentTime(0)
-    }
+  
   }, [isPlaying])
 
   // ── Audio element event listeners ────────────────────────────────────────

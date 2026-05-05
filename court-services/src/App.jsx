@@ -4,7 +4,6 @@ import { AudioProvider } from './context/AudioContext'
 import HomePage from './pages/HomePage'
 import DetailPage from './pages/DetailPage'
 import Chatbot from './components/Chatbot'
-import StickyAudioBar from './components/StickyAudioBar'
 
 export default function App() {
   return (
@@ -15,7 +14,6 @@ export default function App() {
           <Route path="/service/:id" element={<DetailPage />} />
         </Routes>
         <Chatbot />
-        <StickyAudioBar />
       </AudioProvider>
     </LanguageProvider>
   )
