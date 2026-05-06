@@ -20,11 +20,11 @@ export const translations = {
     detailFooterNote: 'لديك سؤال؟ استخدم مساعد المحكمة أدناه للحصول على إرشادات فورية.',
 
     // Detail page — audio labels
-    audioOverview:     '🎧 استمع إلى شرح الخدمة',
-    audioSteps:        '🎧 استمع إلى شرح الخطوات',
-    audioRequirements: '🎧 استمع إلى متطلبات الخدمة',
-    audioChannels:     '🎧 استمع إلى قنوات التقديم',
-    audioOutcomes:     '🎧 استمع إلى النتائج المحتملة',
+    audioOverview:     ' استمع إلى شرح الخدمة',
+    audioSteps:        ' استمع إلى شرح الخطوات',
+    audioRequirements: ' استمع إلى متطلبات الخدمة',
+    audioChannels:     ' استمع إلى قنوات التقديم',
+    audioOutcomes:     ' استمع إلى النتائج المحتملة',
 
     // Detail page — section headings
     sectionUseCases: 'من يستفيد من هذه الخدمة؟',
@@ -78,11 +78,11 @@ export const translations = {
     detailFooterNote: 'عندك سؤال؟ استعمل المساعد ديال المحكمة لتحت باش تجاوب فالحال.',
 
     // Detail page — audio labels
-    audioOverview:     '🎧 سمع شرح الخدمة',
-    audioSteps:        '🎧 سمع شرح الخطوات',
-    audioRequirements: '🎧 سمع متطلبات الخدمة',
-    audioChannels:     '🎧 سمع قنوات التقديم',
-    audioOutcomes:     '🎧 سمع النتائج المحتملة',
+    audioOverview:     ' سمع شرح الخدمة',
+    audioSteps:        ' سمع شرح الخطوات',
+    audioRequirements: ' سمع متطلبات الخدمة',
+    audioChannels:     ' سمع قنوات التقديم',
+    audioOutcomes:     ' سمع النتائج المحتملة',
 
     // Detail page — section headings
     sectionUseCases: 'شكون لي تنفعو هاد الخدمة؟',
