@@ -12,17 +12,17 @@ const ALL_INTENTS = [
   trackingIntents,
   supportIntents,
   courtIntents,
-  generalIntents,  
+  generalIntents, 
 ]
 
-// ─── Scoring weights ──────────────────────────────────────────────────────────
+// Scoring weights
 const W_PHRASE  = 5   // exact phrase match
 const W_KEYWORD = 3   // exact keyword match
 const W_FUZZY   = 1   // fuzzy/partial match
 const W_BOOST   = 2   // context booster match
 const FUZZY_MIN = 0.72 // minimum similarity to count as fuzzy match
 
-// ─── Normalization ────────────────────────────────────────────────────────────
+//Normalization
 
 const NOISE_WORDS = new Set([
   'و', 'في', 'على', 'من', 'إلى', 'الى', 'مع', 'عن', 'هذا', 'هذه',
@@ -34,14 +34,6 @@ const NOISE_WORDS = new Set([
   'كنت', 'كنا', 'بغيت', 'بغينا',
 ])
 
-/**
- * Normalize Arabic text:
- * - remove punctuation and diacritics
- * - normalize alef variants → ا
- * - normalize teh marbuta → ه
- * - lowercase
- * - filter noise words for token extraction
- */
 function normalize(text) {
   return text
     .replace(/[\u064B-\u065F\u0670]/g, '')  // remove diacritics
@@ -63,12 +55,8 @@ function extractTokens(text) {
     .filter(t => t.length > 1 && !NOISE_WORDS.has(t))
 }
 
-// ─── Fuzzy matching (Jaro-Winkler inspired, no external deps) ────────────────
+// Fuzzy matching────────────────
 
-/**
- * Character-level similarity between two strings.
- * Returns 0.0 – 1.0. Pure JS, no libraries.
- */
 function similarity(a, b) {
   if (a === b) return 1.0
   if (a.length === 0 || b.length === 0) return 0.0
@@ -143,12 +131,8 @@ function fuzzyMatchesKeyword(inputTokens, keyword) {
   return false
 }
 
-// ─── Main scoring engine ──────────────────────────────────────────────────────
+// Main scoring engine
 
-/**
- * scoreIntent
- * Returns a numerical score for how well user input matches an intent module.
- */
 function scoreIntent(normalInput, inputTokens, intent) {
   let score = 0
 
@@ -195,10 +179,7 @@ function scoreIntent(normalInput, inputTokens, intent) {
   return score * (intent.weight || 1)
 }
 
-/**
- * scoreToConfidence
- * Maps raw score to a 0–100 confidence value with tiered scaling.
- */
+
 function scoreToConfidence(score) {
   if (score <= 0)  return 0
   if (score >= 40) return 100
@@ -206,7 +187,7 @@ function scoreToConfidence(score) {
   return Math.min(100, Math.round((score / 40) * 100))
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
+// Public API
 
 /**
  * detectService
