@@ -105,8 +105,7 @@ function detectSubIntent(service, input) {
   return 'default'
 }
 
-// ─── Public API ───────────────────────────────────────────────────────────────
-
+// Public API
 /**
  * processMessage
  * Main entry point for the Chatbot component.

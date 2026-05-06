@@ -1,13 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// detectService.js  v2 — Smart Intent Detection Engine
-//
-// Upgrades over v1:
-//   • Fuzzy matching — handles typos, missing letters, dialect variants
-//   • Long sentence parsing — extracts signal words from noisy text
-//   • Weighted ranking — phrase (+5) > keyword (+3) > fuzzy (+1) > boost (+2)
-//   • Confidence score — 0–100 returned alongside service name
-//   • Context boosters — domain-specific signals that raise confidence
-// ─────────────────────────────────────────────────────────────────────────────
 
 import { complaintIntents } from '../intents/complaint.intents'
 import { courtIntents }     from '../intents/court.intents'
@@ -22,7 +12,7 @@ const ALL_INTENTS = [
   trackingIntents,
   supportIntents,
   courtIntents,
-  generalIntents,   // lowest priority — general always last
+  generalIntents,  
 ]
 
 // ─── Scoring weights ──────────────────────────────────────────────────────────
