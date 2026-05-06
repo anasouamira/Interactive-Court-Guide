@@ -9,7 +9,7 @@
 
 // ── Core engine (what the Chatbot component needs) ────────────────────────────
 export { processMessage, getWelcomeMessage, getQuickChips } from './core/chatbotEngine'
-export { detectService } from './core/detectService'
+export { detectService, detectServiceWithConfidence } from './core/detectService'
 
 // ── Intent modules (for extension/testing) ────────────────────────────────────
 export { complaintIntents }  from './intents/complaint.intents'

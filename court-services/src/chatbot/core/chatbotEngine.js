@@ -1,23 +1,13 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// chatbotEngine.js
-// Central chatbot logic handler.
-// Takes user input → detects service → detects sub-intent → returns replies.
-//
-// Public API:
-//   processMessage(text, lang) → string[]
-//   getQuickChips(lang)        → Array<{ label, msg }>
-//   getWelcomeMessage(lang)    → string
-// ─────────────────────────────────────────────────────────────────────────────
 
-import { detectService }        from './detectService'
-import { complaintResponses }   from '../responses/complaint.responses'
-import { courtResponses }       from '../responses/court.responses'
-import { trackingResponses }    from '../responses/tracking.responses'
-import { documentsResponses }   from '../responses/documents.responses'
-import { supportResponses }     from '../responses/support.responses'
-import { generalResponses }     from '../responses/general.responses'
+import { detectServiceWithConfidence } from './detectService'
+import { complaintResponses }  from '../responses/complaint.responses'
+import { courtResponses }      from '../responses/court.responses'
+import { trackingResponses }   from '../responses/tracking.responses'
+import { documentsResponses }  from '../responses/documents.responses'
+import { supportResponses }    from '../responses/support.responses'
+import { generalResponses }    from '../responses/general.responses'
 
-// ─── Response map — service → response module ─────────────────────────────────
+//Response map
 const RESPONSE_MAP = {
   complaint: complaintResponses,
   court:     courtResponses,
@@ -27,70 +17,86 @@ const RESPONSE_MAP = {
   general:   generalResponses,
 }
 
-// ─── Sub-intent refinement ────────────────────────────────────────────────────
-// After the service is detected, we do a lightweight second pass to pick
-// the most specific response key within that service's response module.
+// Each entry: { key: responseKey, triggers: string[] }
+// First trigger match wins. Ordered from most specific to least specific.
 
 const SUB_INTENTS = {
+
   complaint: [
-    { key: 'steps',     triggers: ['خطوات', 'كيف', 'كيفاش', 'إجراءات', 'طريقة', 'مراحل', 'شنو خاصني'] },
-    { key: 'fees',      triggers: ['رسوم', 'تكلف', 'مجاني', 'ثمن', 'سعر', 'شحال', 'بالمجان'] },
-    { key: 'location',  triggers: ['فين', 'أين', 'مكان', 'عنوان', 'بلاصة', 'كيفاش نوصل'] },
-    { key: 'documents', triggers: ['وثيقة', 'وثائق', 'مستند', 'خاصني', 'ما خاصني'] },
+    { key: 'theft',     triggers: ['سرق', 'نصب', 'احتيال', 'غش', 'ابتزاز', 'سرقة', 'نصبوني', 'سرقوني', 'اخد فلوسي', 'ما رجعليش', 'ما خلصنيش', 'خد منيا', 'دارلي'] },
+    { key: 'rights',    triggers: ['حقوق', 'حق', 'حقي', 'مظلوم', 'ظلموني'] },
+    { key: 'steps',     triggers: ['خطوات', 'كيف', 'كيفاش', 'إجراءات', 'طريقة', 'مراحل', 'شنو خاصني', 'كيبدا', 'من أين أبدأ'] },
+    { key: 'fees',      triggers: ['رسوم', 'تكلف', 'مجاني', 'ثمن', 'سعر', 'شحال', 'بالمجان', 'بالمجان واخا'] },
+    { key: 'location',  triggers: ['فين', 'أين', 'مكان', 'عنوان', 'بلاصة', 'كيفاش نوصل', 'وين'] },
+    { key: 'documents', triggers: ['وثيقة', 'وثائق', 'مستند', 'خاصني نجيب', 'ما خاصني', 'ما هي الوثائق'] },
   ],
 
   court: [
-    { key: 'hearing',  triggers: ['جلسة', 'موعد', 'حجز', 'تحديد موعد'] },
-    { key: 'appeal',   triggers: ['استئناف', 'طعن', 'نقض', 'الحكم'] },
-    { key: 'lawsuit',  triggers: ['دعوى', 'رفع', 'مدنية', 'مقال'] },
-    { key: 'summons',  triggers: ['استدعاء', 'احضار', 'مثول', 'جاني استدعاء'] },
-    { key: 'location', triggers: ['فين', 'أين', 'بلاصة', 'عنوان', 'ساعات', 'مواعيد'] },
+    { key: 'summons',  triggers: ['استدعاء', 'احضار', 'مثول', 'جاني', 'استلمت', 'ورقة من المحكمة'] },
+    { key: 'appeal',   triggers: ['استئناف', 'طعن', 'نقض', 'ما راضيش', 'اعتراض', 'نعترض', 'الحكم غلط', 'مظلوم في الحكم'] },
+    { key: 'lawsuit',  triggers: ['دعوى', 'رفع دعوى', 'مدنية', 'مقال', 'ارفع', 'نقدم دعوى'] },
+    { key: 'hearing',  triggers: ['جلسة', 'موعد', 'حجز', 'تحديد موعد', 'موعد جلستي'] },
+    { key: 'fees',     triggers: ['رسوم', 'تكلف', 'شحال', 'ثمن', 'كم'] },
+    { key: 'location', triggers: ['فين', 'أين', 'بلاصة', 'عنوان', 'ساعات', 'مواعيد', 'يفتح', 'يغلق'] },
   ],
 
   tracking: [
-    { key: 'status',          triggers: ['حالة', 'وضع', 'أين وصلت', 'فين وصلت', 'آش صرا'] },
-    { key: 'referenceNumber', triggers: ['رقم', 'مرجع', 'نسيت', 'فقدت'] },
-    { key: 'duration',        triggers: ['كم', 'مدة', 'متى', 'وقت', 'شحال', 'كيدوم'] },
+    { key: 'noUpdate',        triggers: ['ما سمعتش', 'وما عندي خبر', 'ما خبروني', 'مضات أشهر', 'مدة طويلة', 'من مدة', 'ما جا شي'] },
+    { key: 'referenceNumber', triggers: ['رقم', 'مرجع', 'نسيت', 'فقدت', 'ضاع', 'ما عندي رقم', 'رقم القضية'] },
+    { key: 'duration',        triggers: ['كم', 'مدة', 'متى', 'وقت', 'شحال', 'كيدوم', 'يستغرق', 'يأخذ'] },
+    { key: 'status',          triggers: ['حالة', 'وضع', 'أين وصلت', 'فين وصل', 'آش صرا', 'شنو وقع', 'نتيجة', 'مآل'] },
   ],
 
   documents: [
-    { key: 'criminalRecord', triggers: ['سجل عدلي', 'جنائية', 'عدلي', 'بطاقة جنائية'] },
-    { key: 'courtRecords',   triggers: ['نسخة', 'حكم', 'وثيقة المحكمة', 'محضر'] },
-    { key: 'legalization',   triggers: ['تصديق', 'مصادقة', 'أبوستيل', 'توثيق', 'خارج'] },
+    { key: 'apostille',      triggers: ['أبوستيل', 'apostille', 'للخارج دولة', 'اتفاقية لاهاي', 'معترف به دولياً'] },
+    { key: 'legalization',   triggers: ['تصديق', 'مصادقة', 'توثيق', 'أصدق', 'مصدق', 'للخارج', 'للسفارة', 'وزارة الخارجية'] },
+    { key: 'courtRecords',   triggers: ['نسخة حكم', 'وثيقة المحكمة', 'محضر', 'ضبط', 'نسخة من الملف', 'ct-07'] },
+    { key: 'criminalRecord', triggers: ['سجل عدلي', 'جنائية', 'عدلي', 'بطاقة جنائية', 'سوابق', 'لا سوابق', 'السجل'] },
   ],
 
   support: [
-    { key: 'marriage',    triggers: ['زواج', 'عقد الزواج', 'إذن الزواج', 'نكاح'] },
-    { key: 'divorce',     triggers: ['طلاق', 'خلع', 'تطليق', 'فراق'] },
-    { key: 'custody',     triggers: ['حضانة', 'أطفال بعد الطلاق', 'من يحضن'] },
-    { key: 'inheritance', triggers: ['ميراث', 'تركة', 'ورثة', 'قسمة'] },
+    { key: 'khul',        triggers: ['خلع', 'خلاع', 'بغيت نخلع', 'أخلع', 'حق الزوجة في الطلاق'] },
+    { key: 'alimony',     triggers: ['نفقة', 'النفقة', 'مصاريف', 'خلاص الأطفال', 'ما كيعطيش', 'ما عطاش'] },
+    { key: 'custody',     triggers: ['حضانة', 'من يحضن', 'مع شكون', 'الأطفال بعد الطلاق', 'دراري', 'أولاد'] },
+    { key: 'inheritance', triggers: ['ميراث', 'تركة', 'ورثة', 'قسمة', 'إرث', 'مات', 'ماتت', 'الحصة', 'الدار بعد الوفاة'] },
+    { key: 'divorce',     triggers: ['طلاق', 'تطليق', 'فراق', 'انفصال', 'بغيت نطلق', 'شقاق', 'أريد الطلاق'] },
+    { key: 'marriage',    triggers: ['زواج', 'عقد الزواج', 'أتزوج', 'نكاح', 'تسجيل الزواج', 'إذن الزواج', 'عرس'] },
   ],
 
   general: [
-    { key: 'greeting',  triggers: ['سلام', 'مرحبا', 'أهلا', 'صباح', 'مساء', 'كيداير', 'هلا'] },
-    { key: 'services',  triggers: ['خدمات', 'شنو تقدر', 'ما هي', 'ما ذا يمكن'] },
-    { key: 'fees',      triggers: ['رسوم', 'تكلف', 'مجاني', 'شحال', 'ثمن', 'أسعار'] },
-    { key: 'location',  triggers: ['فين', 'أين', 'عنوان', 'بلاصة', 'مكان'] },
-    { key: 'hours',     triggers: ['ساعات', 'مواعيد', 'متى مفتوح', 'أوقات', 'الدوام'] },
-    { key: 'lawyer',    triggers: ['محامي', 'محاماة', 'خاصني محامي', 'بدون محامي'] },
-    { key: 'thanks',    triggers: ['شكرا', 'شكراً', 'merci', 'baraka'] },
+    { key: 'greeting',  triggers: ['سلام', 'مرحبا', 'أهلا', 'صباح', 'مساء', 'كيداير', 'هلا', 'hi', 'hello', 'bonjour'] },
+    { key: 'thanks',    triggers: ['شكرا', 'شكراً', 'merci', 'baraka', 'مشكور', 'بارك الله'] },
+    { key: 'lawyer',    triggers: ['محامي', 'محاماة', 'مستشار قانوني', 'محامي مجاني', 'بدون محامي'] },
+    { key: 'hours',     triggers: ['ساعات', 'مواعيد', 'متى مفتوح', 'أوقات', 'دوام', 'يفتح', 'يغلق'] },
+    { key: 'location',  triggers: ['فين', 'أين', 'عنوان', 'بلاصة', 'مكان', 'كيفاش نوصل'] },
+    { key: 'fees',      triggers: ['رسوم', 'تكلف', 'مجاني', 'شحال', 'ثمن', 'أسعار', 'كم'] },
+    { key: 'services',  triggers: ['خدمات', 'شنو تقدر', 'ما هي', 'ما ذا', 'القائمة', 'كل الخدمات'] },
   ],
 }
 
-/**
- * detectSubIntent
- * Given a service and user input, returns the best matching response key.
- * Falls back to 'default' if nothing matches.
- */
+// Sub-intent detection 
+
+function normalize(text) {
+  return text
+    .replace(/[\u064B-\u065F\u0670]/g, '')
+    .replace(/[أإآ]/g, 'ا')
+    .replace(/[ة]/g, 'ه')
+    .replace(/[ى]/g, 'ي')
+    .replace(/[.,،؟?!؛;:]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
 function detectSubIntent(service, input) {
-  const subIntents = SUB_INTENTS[service]
-  if (!subIntents) return 'default'
+  const subList = SUB_INTENTS[service]
+  if (!subList) return 'default'
 
-  const normalInput = input.trim().toLowerCase()
+  const normalInput = normalize(input)
 
-  for (const { key, triggers } of subIntents) {
+  for (const { key, triggers } of subList) {
     for (const trigger of triggers) {
-      if (normalInput.includes(trigger.toLowerCase())) {
+      if (normalInput.includes(normalize(trigger))) {
         return key
       }
     }
@@ -103,63 +109,58 @@ function detectSubIntent(service, input) {
 
 /**
  * processMessage
- * Main entry point. Takes a user message, detects intent, returns replies.
- * @param {string} text - raw user input
- * @param {string} lang - 'ar' | 'ma' (both use same Arabic response files)
- * @returns {string[]} array of response strings to display sequentially
+ * Main entry point for the Chatbot component.
+ * @param {string} text  — raw user message
+ * @param {string} lang  — 'ar' | 'ma'
+ * @returns {string[]}   — array of reply strings
  */
 export function processMessage(text, lang = 'ar') {
-  if (!text || !text.trim()) {
-    return generalResponses.fallback
-  }
+  if (!text || !text.trim()) return generalResponses.fallback
 
-  const service    = detectService(text)
+  const { service, confidence } = detectServiceWithConfidence(text)
   const subIntent  = detectSubIntent(service, text)
   const responses  = RESPONSE_MAP[service]
 
-  // Try the specific sub-intent response, then fallback chain
-  const reply =
-    responses[subIntent]   ||
-    responses['default']   ||
-    responses['fallback']  ||
-    generalResponses.fallback
+  // Very low confidence → global fallback
+  if (confidence < 15) return generalResponses.fallback
 
-  return reply
+  return (
+    responses[subIntent]  ||
+    responses['default']  ||
+    responses['fallback'] ||
+    generalResponses.fallback
+  )
 }
 
 /**
  * getWelcomeMessage
- * Returns the greeting message shown when the chatbot first opens.
  * @param {string} lang
  * @returns {string}
  */
 export function getWelcomeMessage(lang = 'ar') {
-  const greetings = {
-    ar: 'مرحباً! أنا مساعد خدمات المحكمة. كيف يمكنني مساعدتك اليوم؟',
-    ma: 'مرحبا! أنا المساعد ديال خدمات المحكمة. كيفاش نقدر نعاونك اليوم؟',
-  }
-  return greetings[lang] || greetings['ar']
+  return lang === 'ma'
+    ? 'مرحبا! أنا المساعد ديال خدمات المحكمة. كيفاش نقدر نعاونك اليوم؟'
+    : 'مرحباً! أنا مساعد خدمات المحكمة. كيف يمكنني مساعدتك اليوم؟'
 }
 
 /**
  * getQuickChips
- * Returns quick-reply chip definitions for the chatbot UI.
  * @param {string} lang
  * @returns {Array<{ label: string, msg: string }>}
  */
 export function getQuickChips(lang = 'ar') {
   const chips = {
     ar: [
-      { label: 'كيف أقدم شكوى؟',      msg: 'كيف أقدم شكوى رسمية؟' },
-      { label: 'الوثائق المطلوبة',      msg: 'ما هي الوثائق المطلوبة؟' },
-      { label: 'موقع المحكمة',          msg: 'أين يقع مقر المحكمة؟' },
-      { label: 'رسوم الخدمات',          msg: 'ما هي رسوم خدمات المحكمة؟' },
+      { label: 'كيف أقدم شكوى؟',    msg: 'كيف أقدم شكوى رسمية؟' },
+      { label: 'الوثائق المطلوبة',    msg: 'ما هي الوثائق المطلوبة؟' },
+      { label: 'رسوم الخدمات',        msg: 'ما هي رسوم خدمات المحكمة؟' },
+      { label: 'متابعة قضية',         msg: 'كيف أتابع حالة قضيتي؟' },
     ],
     ma: [
-      { label: 'كيفاش نقدم شكاية؟',    msg: 'كيفاش نقدم شكاية رسمية؟' },
-      { label: 'الوثائق لي خاصني',      msg: 'شنو الوثائق لي خاصني؟' },
-      { label: 'فين كاينة المحكمة',     msg: 'فين كاينة المحكمة؟' },
-      { label: 'شحال كتكلف الخدمات',   msg: 'شحال كتكلف خدمات المحكمة؟' },
+      { label: 'كيفاش نقدم شكاية؟',  msg: 'كيفاش نقدم شكاية رسمية؟' },
+      { label: 'الوثائق لي خاصني',    msg: 'شنو الوثائق لي خاصني؟' },
+      { label: 'شحال كتكلف الخدمات', msg: 'شحال كتكلف خدمات المحكمة؟' },
+      { label: 'متابعة قضيتي',        msg: 'كيفاش نتابع قضيتي؟' },
     ],
   }
   return chips[lang] || chips['ar']
