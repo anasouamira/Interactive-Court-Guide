@@ -1,28 +1,29 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// chatbot/index.js
-// Central export point for the chatbot system.
-// Import everything you need from this single file.
+// src/chatbot/index.js
+// Single import point for the entire chatbot system.
 //
-// Usage:
+// Usage in Chatbot.jsx (unchanged):
 //   import { processMessage, getWelcomeMessage, getQuickChips } from '../chatbot'
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ── Core engine (what the Chatbot component needs) ────────────────────────────
+// ── Core engine (primary public API) ─────────────────────────────────────────
 export { processMessage, getWelcomeMessage, getQuickChips } from './core/chatbotEngine'
+
+// ── Detection utilities (optional, for debugging / future UI use) ─────────────
 export { detectService, detectServiceWithConfidence } from './core/detectService'
 
-// ── Intent modules (for extension/testing) ────────────────────────────────────
-export { complaintIntents }  from './intents/complaint.intents'
-export { courtIntents }      from './intents/court.intents'
-export { trackingIntents }   from './intents/tracking.intents'
-export { documentsIntents }  from './intents/documents.intents'
-export { supportIntents }    from './intents/support.intents'
-export { generalIntents }    from './intents/general.intents'
+// ── Intent modules (for testing / extending) ─────────────────────────────────
+export { complaintIntents }      from './intents/complaint.intents'
+export { documentsIntents }      from './intents/documents.intents'
+export { criminalRecordIntents } from './intents/criminalRecord.intents'
+export { divorceIntents }        from './intents/divorce.intents'
+export { marriageIntents }       from './intents/marriage.intents'
+export { civilClaimIntents }     from './intents/civilClaim.intents'
 
-// ── Response modules (for extension/testing) ──────────────────────────────────
-export { complaintResponses }  from './responses/complaint.responses'
-export { courtResponses }      from './responses/court.responses'
-export { trackingResponses }   from './responses/tracking.responses'
-export { documentsResponses }  from './responses/documents.responses'
-export { supportResponses }    from './responses/support.responses'
-export { generalResponses }    from './responses/general.responses'
+// ── Response modules (for testing / extending) ────────────────────────────────
+export { complaintResponses }      from './responses/complaint.responses'
+export { documentsResponses }      from './responses/documents.responses'
+export { criminalRecordResponses } from './responses/criminalRecord.responses'
+export { divorceResponses }        from './responses/divorce.responses'
+export { marriageResponses }       from './responses/marriage.responses'
+export { civilClaimResponses }     from './responses/civilClaim.responses'

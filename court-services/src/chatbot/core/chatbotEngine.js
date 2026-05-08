@@ -1,133 +1,176 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// chatbotEngine.js  v3
+// Central message handler for all 6 court services.
+// ─────────────────────────────────────────────────────────────────────────────
 
 import { detectServiceWithConfidence } from './detectService'
-import { complaintResponses }  from '../responses/complaint.responses'
-import { courtResponses }      from '../responses/court.responses'
-import { trackingResponses }   from '../responses/tracking.responses'
-import { documentsResponses }  from '../responses/documents.responses'
-import { supportResponses }    from '../responses/support.responses'
-import { generalResponses }    from '../responses/general.responses'
+import { complaintResponses }      from '../responses/complaint.responses'
+import { documentsResponses }      from '../responses/documents.responses'
+import { criminalRecordResponses } from '../responses/criminalRecord.responses'
+import { divorceResponses }        from '../responses/divorce.responses'
+import { marriageResponses }       from '../responses/marriage.responses'
+import { civilClaimResponses }     from '../responses/civilClaim.responses'
 
-//Response map
+// ─── Response map ─────────────────────────────────────────────────────────────
 const RESPONSE_MAP = {
-  complaint: complaintResponses,
-  court:     courtResponses,
-  tracking:  trackingResponses,
-  documents: documentsResponses,
-  support:   supportResponses,
-  general:   generalResponses,
+  complaint:     complaintResponses,
+  documents:     documentsResponses,
+  criminalRecord: criminalRecordResponses,
+  divorce:       divorceResponses,
+  marriage:      marriageResponses,
+  civilClaim:    civilClaimResponses,
 }
 
-// Each entry: { key: responseKey, triggers: string[] }
-// First trigger match wins. Ordered from most specific to least specific.
-
-const SUB_INTENTS = {
-
-  complaint: [
-    { key: 'theft',     triggers: ['سرق', 'نصب', 'احتيال', 'غش', 'ابتزاز', 'سرقة', 'نصبوني', 'سرقوني', 'اخد فلوسي', 'ما رجعليش', 'ما خلصنيش', 'خد منيا', 'دارلي'] },
-    { key: 'rights',    triggers: ['حقوق', 'حق', 'حقي', 'مظلوم', 'ظلموني'] },
-    { key: 'steps',     triggers: ['خطوات', 'كيف', 'كيفاش', 'إجراءات', 'طريقة', 'مراحل', 'شنو خاصني', 'كيبدا', 'من أين أبدأ'] },
-    { key: 'fees',      triggers: ['رسوم', 'تكلف', 'مجاني', 'ثمن', 'سعر', 'شحال', 'بالمجان', 'بالمجان واخا'] },
-    { key: 'location',  triggers: ['فين', 'أين', 'مكان', 'عنوان', 'بلاصة', 'كيفاش نوصل', 'وين'] },
-    { key: 'documents', triggers: ['وثيقة', 'وثائق', 'مستند', 'خاصني نجيب', 'ما خاصني', 'ما هي الوثائق'] },
-  ],
-
-  court: [
-    { key: 'summons',  triggers: ['استدعاء', 'احضار', 'مثول', 'جاني', 'استلمت', 'ورقة من المحكمة'] },
-    { key: 'appeal',   triggers: ['استئناف', 'طعن', 'نقض', 'ما راضيش', 'اعتراض', 'نعترض', 'الحكم غلط', 'مظلوم في الحكم'] },
-    { key: 'lawsuit',  triggers: ['دعوى', 'رفع دعوى', 'مدنية', 'مقال', 'ارفع', 'نقدم دعوى'] },
-    { key: 'hearing',  triggers: ['جلسة', 'موعد', 'حجز', 'تحديد موعد', 'موعد جلستي'] },
-    { key: 'fees',     triggers: ['رسوم', 'تكلف', 'شحال', 'ثمن', 'كم'] },
-    { key: 'location', triggers: ['فين', 'أين', 'بلاصة', 'عنوان', 'ساعات', 'مواعيد', 'يفتح', 'يغلق'] },
-  ],
-
-  tracking: [
-    { key: 'noUpdate',        triggers: ['ما سمعتش', 'وما عندي خبر', 'ما خبروني', 'مضات أشهر', 'مدة طويلة', 'من مدة', 'ما جا شي'] },
-    { key: 'referenceNumber', triggers: ['رقم', 'مرجع', 'نسيت', 'فقدت', 'ضاع', 'ما عندي رقم', 'رقم القضية'] },
-    { key: 'duration',        triggers: ['كم', 'مدة', 'متى', 'وقت', 'شحال', 'كيدوم', 'يستغرق', 'يأخذ'] },
-    { key: 'status',          triggers: ['حالة', 'وضع', 'أين وصلت', 'فين وصل', 'آش صرا', 'شنو وقع', 'نتيجة', 'مآل'] },
-  ],
-
-  documents: [
-    { key: 'apostille',      triggers: ['أبوستيل', 'apostille', 'للخارج دولة', 'اتفاقية لاهاي', 'معترف به دولياً'] },
-    { key: 'legalization',   triggers: ['تصديق', 'مصادقة', 'توثيق', 'أصدق', 'مصدق', 'للخارج', 'للسفارة', 'وزارة الخارجية'] },
-    { key: 'courtRecords',   triggers: ['نسخة حكم', 'وثيقة المحكمة', 'محضر', 'ضبط', 'نسخة من الملف', 'ct-07'] },
-    { key: 'criminalRecord', triggers: ['سجل عدلي', 'جنائية', 'عدلي', 'بطاقة جنائية', 'سوابق', 'لا سوابق', 'السجل'] },
-  ],
-
-  support: [
-    { key: 'khul',        triggers: ['خلع', 'خلاع', 'بغيت نخلع', 'أخلع', 'حق الزوجة في الطلاق'] },
-    { key: 'alimony',     triggers: ['نفقة', 'النفقة', 'مصاريف', 'خلاص الأطفال', 'ما كيعطيش', 'ما عطاش'] },
-    { key: 'custody',     triggers: ['حضانة', 'من يحضن', 'مع شكون', 'الأطفال بعد الطلاق', 'دراري', 'أولاد'] },
-    { key: 'inheritance', triggers: ['ميراث', 'تركة', 'ورثة', 'قسمة', 'إرث', 'مات', 'ماتت', 'الحصة', 'الدار بعد الوفاة'] },
-    { key: 'divorce',     triggers: ['طلاق', 'تطليق', 'فراق', 'انفصال', 'بغيت نطلق', 'شقاق', 'أريد الطلاق'] },
-    { key: 'marriage',    triggers: ['زواج', 'عقد الزواج', 'أتزوج', 'نكاح', 'تسجيل الزواج', 'إذن الزواج', 'عرس'] },
-  ],
-
-  general: [
-    { key: 'greeting',  triggers: ['سلام', 'مرحبا', 'أهلا', 'صباح', 'مساء', 'كيداير', 'هلا', 'hi', 'hello', 'bonjour'] },
-    { key: 'thanks',    triggers: ['شكرا', 'شكراً', 'merci', 'baraka', 'مشكور', 'بارك الله'] },
-    { key: 'lawyer',    triggers: ['محامي', 'محاماة', 'مستشار قانوني', 'محامي مجاني', 'بدون محامي'] },
-    { key: 'hours',     triggers: ['ساعات', 'مواعيد', 'متى مفتوح', 'أوقات', 'دوام', 'يفتح', 'يغلق'] },
-    { key: 'location',  triggers: ['فين', 'أين', 'عنوان', 'بلاصة', 'مكان', 'كيفاش نوصل'] },
-    { key: 'fees',      triggers: ['رسوم', 'تكلف', 'مجاني', 'شحال', 'ثمن', 'أسعار', 'كم'] },
-    { key: 'services',  triggers: ['خدمات', 'شنو تقدر', 'ما هي', 'ما ذا', 'القائمة', 'كل الخدمات'] },
-  ],
-}
-
-// Sub-intent detection 
-
+// ─── Shared normalize (keeps engine self-contained) ───────────────────────────
 function normalize(text) {
   return text
     .replace(/[\u064B-\u065F\u0670]/g, '')
     .replace(/[أإآ]/g, 'ا')
-    .replace(/[ة]/g, 'ه')
-    .replace(/[ى]/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/ى/g, 'ي')
     .replace(/[.,،؟?!؛;:]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase()
 }
 
+// ─── Sub-intent trigger tables ────────────────────────────────────────────────
+// Ordered from most-specific to least-specific within each service.
+// First match wins.
+
+const SUB_INTENTS = {
+
+  complaint: [
+    { key: 'emergency',    triggers: ['طوارئ', 'خطر', 'الآن', 'عاجل', 'فوري', 'يضربني', 'يهددني', 'مباشر'] },
+    { key: 'theft',        triggers: ['سرق', 'نصب', 'احتيال', 'غش', 'ابتزاز', 'سرقوني', 'نصبوني', 'غشوني', 'ما رجعليش', 'ما خلصنيش', 'خد فلوسي', 'اخد منيا'] },
+    { key: 'rights',       triggers: ['حقوق', 'حقي', 'مظلوم', 'ظلموني', 'ما حقي'] },
+    { key: 'tracking',     triggers: ['متابعة', 'تتبع', 'حالة الشكوى', 'فين وصلت', 'آش صرا', 'الرقم المرجعي'] },
+    { key: 'duration',     triggers: ['كم', 'مدة', 'متى', 'وقت', 'شحال', 'يستغرق', 'يأخذ', 'يدوم'] },
+    { key: 'fees',         triggers: ['رسوم', 'تكلف', 'مجاني', 'ثمن', 'سعر', 'شحال', 'بالمجان'] },
+    { key: 'documents',    triggers: ['وثيقة', 'وثائق', 'مستند', 'خاصني نجيب', 'ما هي الوثائق', 'ما خاصني'] },
+    { key: 'legalNotes',   triggers: ['قانون', 'قانوني', 'تقادم', 'مدة التقادم', 'جنحة', 'جناية'] },
+    { key: 'commonErrors', triggers: ['أخطاء', 'خطأ', 'تجنب', 'مشكل شائع', 'ما خاصنيش'] },
+    { key: 'advice',       triggers: ['نصيحة', 'نصائح', 'كيف أعمل', 'ماذا أفعل', 'شنو دير'] },
+    { key: 'steps',        triggers: ['خطوات', 'كيف', 'كيفاش', 'إجراءات', 'طريقة', 'مراحل', 'من أين أبدأ', 'كيبدا'] },
+  ],
+
+  documents: [
+    { key: 'apostille',    triggers: ['أبوستيل', 'apostille', 'لاهاي', 'اتفاقية', 'دولي', '120 دولة'] },
+    { key: 'tracking',     triggers: ['متابعة', 'تتبع', 'فين وصل', 'إيصال', 'الطلب ديالي'] },
+    { key: 'duration',     triggers: ['كم', 'مدة', 'متى', 'وقت', 'شحال', 'يستغرق', 'يأخذ', 'يدوم'] },
+    { key: 'fees',         triggers: ['رسوم', 'تكلف', 'مجاني', 'ثمن', 'سعر', 'شحال', 'بالمجان'] },
+    { key: 'documents',    triggers: ['وثيقة', 'وثائق', 'مستند', 'خاصني نجيب', 'ما هي الوثائق'] },
+    { key: 'legalNotes',   triggers: ['قانون', 'قانوني', 'قنصلية', 'خارج المغرب', 'ديني', 'مدني'] },
+    { key: 'commonErrors', triggers: ['أخطاء', 'خطأ', 'تجنب', 'ما صلحش', 'رُفض', 'ما قبلوش'] },
+    { key: 'rights',       triggers: ['حقوق', 'حقي', 'رفض', 'اعتراض'] },
+    { key: 'advice',       triggers: ['نصيحة', 'نصائح', 'كيف أعمل', 'شنو دير'] },
+    { key: 'steps',        triggers: ['خطوات', 'كيف', 'كيفاش', 'إجراءات', 'طريقة', 'من أين أبدأ'] },
+  ],
+
+  criminalRecord: [
+    { key: 'validity',     triggers: ['صلاحية', 'تنتهي', 'مدة', 'صالح', 'انتهت', 'تجديد', 'تحديث'] },
+    { key: 'tracking',     triggers: ['متابعة', 'تتبع', 'فين وصل', 'الطلب ديالي', 'لم يصل', 'ما وصلش'] },
+    { key: 'duration',     triggers: ['كم', 'وقت', 'متى', 'شحال', 'يستغرق', 'يأخذ', 'يدوم', 'فوري'] },
+    { key: 'fees',         triggers: ['رسوم', 'تكلف', 'مجاني', 'ثمن', 'سعر', 'شحال', 'بالمجان'] },
+    { key: 'documents',    triggers: ['وثيقة', 'وثائق', 'خاصني نجيب', 'ما هي الوثائق', 'ما خاصني'] },
+    { key: 'legalNotes',   triggers: ['قانون', 'قانوني', 'شطب', 'محو', 'مسح', 'بعد العقوبة'] },
+    { key: 'commonErrors', triggers: ['أخطاء', 'خطأ', 'وكالة', 'غيري', 'شخص آخر'] },
+    { key: 'rights',       triggers: ['حقوق', 'حقي', 'اطلاع', 'اعتراض', 'خطأ في السجل'] },
+    { key: 'advice',       triggers: ['نصيحة', 'نصائح', 'شنو دير', 'كيف أعمل'] },
+    { key: 'emergency',    triggers: ['عاجل', 'فوري', 'أخر لحظة', 'ضيق وقت', 'غداً', 'اليوم'] },
+    { key: 'steps',        triggers: ['خطوات', 'كيف', 'كيفاش', 'إجراءات', 'طريقة', 'من أين أبدأ', 'أونلاين', 'إنترنت'] },
+  ],
+
+  divorce: [
+    { key: 'emergency',    triggers: ['عنف', 'ضرب', 'خطر', 'أذى', 'تهديد', 'عاجل', 'حماية'] },
+    { key: 'khul',         triggers: ['خلع', 'خلاع', 'حق المرأة في الطلاق', 'أخلع زوجي', 'بغيت نخلع'] },
+    { key: 'alimony',      triggers: ['نفقة', 'نفقات', 'مصاريف', 'خلاص', 'ما كيعطيش', 'وقف النفقة', 'التنفيذ'] },
+    { key: 'custody',      triggers: ['حضانة', 'الأطفال', 'دراري', 'مع شكون', 'من يحضن', 'أولاد'] },
+    { key: 'rights',       triggers: ['حقوق', 'حقي', 'حق المرأة', 'حق الزوج', 'مستحقات'] },
+    { key: 'tracking',     triggers: ['متابعة', 'تتبع', 'فين وصل', 'حالة الملف', 'جلسة'] },
+    { key: 'duration',     triggers: ['كم', 'مدة', 'متى', 'وقت', 'شحال', 'يستغرق', 'يأخذ', 'يدوم'] },
+    { key: 'fees',         triggers: ['رسوم', 'تكلف', 'ثمن', 'سعر', 'شحال', 'مبالغ الطلاق'] },
+    { key: 'documents',    triggers: ['وثيقة', 'وثائق', 'خاصني نجيب', 'ما هي الوثائق', 'ما خاصني'] },
+    { key: 'legalNotes',   triggers: ['قانون', 'قانوني', 'مدونة الأسرة', 'خارج المغرب', 'أجنبي'] },
+    { key: 'commonErrors', triggers: ['أخطاء', 'خطأ', 'شائع', 'تجنب', 'ما خاصنيش'] },
+    { key: 'advice',       triggers: ['نصيحة', 'نصائح', 'شنو دير', 'كيف أعمل', 'ماذا أفعل'] },
+    { key: 'steps',        triggers: ['خطوات', 'كيف', 'كيفاش', 'إجراءات', 'طريقة', 'من أين أبدأ'] },
+  ],
+
+  marriage: [
+    { key: 'secondMarriage',  triggers: ['زواج ثاني', 'زواج ثانٍ', 'زوجة ثانية', 'تعدد', 'إذن المحكمة للزواج الثاني'] },
+    { key: 'mixedMarriage',   triggers: ['أجنبي', 'أجنبية', 'زواج مختلط', 'من غير مغربية', 'غير مسلم', 'غير مسلمة', 'أوروبية', 'خارجية'] },
+    { key: 'rights',          triggers: ['حقوق', 'حقي', 'حق الزوجة', 'بنود العقد', 'شروط', 'إكراه'] },
+    { key: 'tracking',        triggers: ['متابعة', 'تتبع', 'فين وصل', 'الطلب ديالي', 'موعد الجلسة'] },
+    { key: 'duration',        triggers: ['كم', 'مدة', 'متى', 'وقت', 'شحال', 'يستغرق', 'يأخذ', 'يدوم'] },
+    { key: 'fees',            triggers: ['رسوم', 'تكلف', 'ثمن', 'سعر', 'شحال', 'بالمجان', 'يكلف'] },
+    { key: 'documents',       triggers: ['وثيقة', 'وثائق', 'خاصني نجيب', 'ما هي الوثائق', 'ما خاصني'] },
+    { key: 'legalNotes',      triggers: ['قانون', 'قانوني', 'مدونة', 'عرفي', 'ديني', 'خارج'] },
+    { key: 'commonErrors',    triggers: ['أخطاء', 'خطأ', 'تجنب', 'ما خاصنيش', 'ما صلحش'] },
+    { key: 'advice',          triggers: ['نصيحة', 'نصائح', 'شنو دير', 'كيف أعمل', 'ماذا أفعل'] },
+    { key: 'steps',           triggers: ['خطوات', 'كيف', 'كيفاش', 'إجراءات', 'طريقة', 'من أين أبدأ'] },
+  ],
+
+  civilClaim: [
+    { key: 'emergency',    triggers: ['عاجل', 'استعجالي', 'حجز', 'إخلاء', 'وشيك', 'فوري', 'أمر وقتي'] },
+    { key: 'execution',    triggers: ['تنفيذ', 'تنفيذ الحكم', 'حكم صالحي', 'ينفذ', 'الحجز', 'قسم التنفيذ'] },
+    { key: 'appeal',       triggers: ['استئناف', 'طعن', 'نقض', 'ما راضيش', 'اعتراض', 'الحكم غلط', '30 يوم'] },
+    { key: 'rights',       triggers: ['حقوق', 'حقي', 'المدّعي', 'ما حقي', 'حقوق المتقاضي'] },
+    { key: 'tracking',     triggers: ['متابعة', 'تتبع', 'فين وصلت', 'حالة القضية', 'جلسة', 'موعد'] },
+    { key: 'duration',     triggers: ['كم', 'مدة', 'متى', 'وقت', 'شحال', 'يستغرق', 'يأخذ', 'يدوم'] },
+    { key: 'fees',         triggers: ['رسوم', 'تكلف', 'ثمن', 'سعر', 'شحال', 'يكلف', 'أتعاب'] },
+    { key: 'documents',    triggers: ['وثيقة', 'وثائق', 'مستند', 'خاصني نجيب', 'ما هي الوثائق'] },
+    { key: 'legalNotes',   triggers: ['قانون', 'قانوني', 'تقادم', 'اختصاص', 'محكمة مختصة', 'أجنبي'] },
+    { key: 'commonErrors', triggers: ['أخطاء', 'خطأ', 'تجنب', 'شائع', 'غياب', 'فوّت'] },
+    { key: 'advice',       triggers: ['نصيحة', 'نصائح', 'شنو دير', 'كيف أعمل', 'ماذا أفعل', 'وساطة'] },
+    { key: 'steps',        triggers: ['خطوات', 'كيف', 'كيفاش', 'إجراءات', 'طريقة', 'من أين أبدأ', 'مقال'] },
+  ],
+}
+
+// ─── Sub-intent detection ─────────────────────────────────────────────────────
+
 function detectSubIntent(service, input) {
-  const subList = SUB_INTENTS[service]
-  if (!subList) return 'default'
+  const list = SUB_INTENTS[service]
+  if (!list) return 'default'
 
-  const normalInput = normalize(input)
-
-  for (const { key, triggers } of subList) {
+  const normInput = normalize(input)
+  for (const { key, triggers } of list) {
     for (const trigger of triggers) {
-      if (normalInput.includes(normalize(trigger))) {
-        return key
-      }
+      if (normInput.includes(normalize(trigger))) return key
     }
   }
-
   return 'default'
 }
 
-// Public API
+// ─── Global fallback response ─────────────────────────────────────────────────
+const GLOBAL_FALLBACK = [
+  'لم أفهم سؤالك تماماً.',
+  'يمكنني مساعدتك في:\n• تقديم شكوى\n• تصديق الوثائق\n• السجل العدلي\n• إجراءات الطلاق\n• تسجيل الزواج\n• رفع دعوى مدنية',
+  'حاول إعادة صياغة سؤالك أو اختر من الأزرار أعلاه.',
+]
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
 /**
- * processMessage
- * Main entry point for the Chatbot component.
- * @param {string} text  — raw user message
- * @param {string} lang  — 'ar' | 'ma'
- * @returns {string[]}   — array of reply strings
+ * processMessage — main entry point used by Chatbot.jsx
+ * @param {string} text
+ * @param {string} lang — 'ar' | 'ma' (responses are Arabic for both)
+ * @returns {string[]}
  */
 export function processMessage(text, lang = 'ar') {
-  if (!text || !text.trim()) return generalResponses.fallback
+  if (!text?.trim()) return GLOBAL_FALLBACK
 
   const { service, confidence } = detectServiceWithConfidence(text)
-  const subIntent  = detectSubIntent(service, text)
-  const responses  = RESPONSE_MAP[service]
+  if (confidence < 15) return GLOBAL_FALLBACK
 
-  // Very low confidence → global fallback
-  if (confidence < 15) return generalResponses.fallback
+  const subIntent = detectSubIntent(service, text)
+  const responses = RESPONSE_MAP[service]
 
   return (
     responses[subIntent]  ||
     responses['default']  ||
     responses['fallback'] ||
-    generalResponses.fallback
+    GLOBAL_FALLBACK
   )
 }
 
@@ -150,16 +193,16 @@ export function getWelcomeMessage(lang = 'ar') {
 export function getQuickChips(lang = 'ar') {
   const chips = {
     ar: [
-      { label: 'كيف أقدم شكوى؟',    msg: 'كيف أقدم شكوى رسمية؟' },
-      { label: 'الوثائق المطلوبة',    msg: 'ما هي الوثائق المطلوبة؟' },
-      { label: 'رسوم الخدمات',        msg: 'ما هي رسوم خدمات المحكمة؟' },
-      { label: 'متابعة قضية',         msg: 'كيف أتابع حالة قضيتي؟' },
+      { label: 'تقديم شكوى',       msg: 'كيف أقدم شكوى رسمية؟' },
+      { label: 'السجل العدلي',      msg: 'كيف أستخرج السجل العدلي؟' },
+      { label: 'تصديق وثيقة',      msg: 'كيف أصدق وثيقة رسمية؟' },
+      { label: 'إجراءات الطلاق',   msg: 'ما هي إجراءات الطلاق؟' },
     ],
     ma: [
-      { label: 'كيفاش نقدم شكاية؟',  msg: 'كيفاش نقدم شكاية رسمية؟' },
-      { label: 'الوثائق لي خاصني',    msg: 'شنو الوثائق لي خاصني؟' },
-      { label: 'شحال كتكلف الخدمات', msg: 'شحال كتكلف خدمات المحكمة؟' },
-      { label: 'متابعة قضيتي',        msg: 'كيفاش نتابع قضيتي؟' },
+      { label: 'تقديم شكاية',      msg: 'كيفاش نقدم شكاية رسمية؟' },
+      { label: 'السجل العدلي',      msg: 'كيفاش نجيب السجل العدلي؟' },
+      { label: 'تصديق وثيقة',      msg: 'كيفاش نصدق وثيقة رسمية؟' },
+      { label: 'إجراءات الطلاق',   msg: 'شنو إجراءات الطلاق؟' },
     ],
   }
   return chips[lang] || chips['ar']
