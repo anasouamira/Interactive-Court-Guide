@@ -1,5 +1,6 @@
 import Header from '../components/Header'
 import ServiceCard from '../components/ServiceCard'
+import CaseTracker from '../components/CaseTracker'
 import { getAllServices } from '../data/services'
 import { useLang } from '../context/LanguageContext'
 
@@ -33,6 +34,9 @@ export default function HomePage() {
 
         {/* Footer note */}
         <p className="text-center text-xs text-muted mt-12">{t('footerNote')}</p>
+
+        {/* ── Case Tracking Section ── */}
+        <CaseTracker />
       </main>
     </div>
   )
