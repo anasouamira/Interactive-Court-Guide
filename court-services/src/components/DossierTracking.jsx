@@ -1,29 +1,23 @@
+import './DossierTracking.css'
+import { useEffect, useState } from 'react'
+
 export default function DossierTracking() {
+  const [mobile, setMobile] = useState(window.innerWidth < 768)
+
+  useEffect(() => {
+    const onResize = () => setMobile(window.innerWidth < 768)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   return (
-    <div
-      style={{
-        overflow: "hidden",
-        height: "440px",
-        width: "100%",
-        borderRadius: "12px",
-        border: "1px solid #ddd",
-      }}
-    >
+    <div className="iframe-box">
       <iframe
         src="https://www.mahakim.ma/#/suivi/dossier-suivi"
-        title="Mahakim Tracking"
-        style={{
-          width: "100%", // 👈 عرض ثابت
-          height: "950px",
-          border: "none",
-
-          // 👇 أهم شيء
-          transform: "scale(1) translateY(-160px)",
-
-          // 👇 يمنع الانزلاقات الغريبة
-          transformOrigin: "top left",
-        }}
+        title="Mahakim"
+        className={mobile ? 'mobile-frame' : 'desktop-frame'}
       />
     </div>
+  
   )
 }
