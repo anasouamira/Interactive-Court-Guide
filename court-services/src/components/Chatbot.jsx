@@ -4,6 +4,7 @@ import { useLang } from '../context/LanguageContext'
 
 export default function Chatbot() {
   const { lang, t } = useLang()
+  
 
   const QUICK_CHIPS = getQuickChips(lang)
 
